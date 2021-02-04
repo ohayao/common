@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	nh "net/http"
@@ -55,8 +56,8 @@ func (that *Context) Timeout(time time.Duration) *Context {
 }
 
 // createRequest 生成请求
-func (that *Context) createRequest(method string) *Context {
-	if res, err := nh.NewRequest(method, that.URL, nil); err == nil {
+func (that *Context) createRequest(method string, body *bytes.Buffer) *Context {
+	if res, err := nh.NewRequest(method, that.URL, body); err == nil {
 		that.request = res
 	}
 	for k, v := range that.headers {
@@ -72,7 +73,7 @@ func (that *Context) createRequest(method string) *Context {
 func (that *Context) GetBytes() []byte {
 	that.Lock()
 	defer that.Unlock()
-	that.createRequest("GET")
+	that.createRequest("GET", bytes.NewBuffer(nil))
 	return that.Do().Result.Body
 }
 
@@ -95,8 +96,29 @@ func (that *Context) GetJSON(v interface{}) {
 }
 
 // PostBytes 提交请求
-func (that *Context) PostBytes() {
+func (that *Context) PostBytes(buf *bytes.Buffer) []byte {
+	that.Lock()
+	defer that.Unlock()
+	that.createRequest("POST", buf)
+	return that.Do().Result.Body
+}
 
+// PostString 获取字符串
+func (that *Context) PostString(buf *bytes.Buffer) string {
+	that.PostBytes(buf)
+	if that.Result.Err == nil {
+		return string(that.Result.Body)
+	}
+	return ""
+}
+
+// PostJSON 获取JSON对象
+// v 指针结构体
+func (that *Context) PostJSON(v interface{}, buf *bytes.Buffer) {
+	that.PostBytes(buf)
+	if that.Result.Err == nil {
+		_ = json.Unmarshal(that.Result.Body, v)
+	}
 }
 
 // Do 执行请求
