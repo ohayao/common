@@ -1,58 +1,42 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"time"
 
-	wf "github.com/mark2b/wpa-connect"
+	"github.com/ohayao/common/db/mongo"
+	"github.com/ohayao/common/file"
 	"github.com/ohayao/common/http"
 	"github.com/ohayao/common/reg"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func main() {
+	eg()
+	db()
+	select {}
+}
+func eg() {
+	request := http.New("http://localhost:80/api")
+	request.PostBytes(bytes.NewBuffer([]byte("")))
+
 	pattern := `^\/user\/(?P<id>[0-9]{1,})?\/career\/(?P<position>.*$)`
 	target := `/user/123456/career/officer`
 	res := reg.GetNamedMap(pattern, target)
 	fmt.Printf("%+v\n", res)
-	//test()
-	wifis()
-	select {}
 }
 
-func test() {
-	type day struct {
-		Date          string `json:"date"`
-		Low           string `json:"low"`
-		High          string `json:"high"`
-		WindDirection string `json:"fengxiang"`
-		WindLevel     string `json:"fengli"`
-		Message       string `json:"type"`
+func db() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+	connStr := file.GetFileContent(".configs/mongodb_str")
+	db, err := mongo.Connect(connStr, time.Second*20, ctx)
+	if err != nil {
+		return
 	}
-	type DData struct {
-		Yesterday *day   `json:"yesterday"`
-		Forecast  []*day `json:"forecast"`
-	}
-	type data struct {
-		Data   *DData
-		Status int    `json:"status"`
-		Desc   string `json:"desc"`
-	}
-	var d = new(data)
-	res := http.New("http://wthrcdn.etouch.cn/weather_mini?city=深圳").Timeout(time.Second * 10)
-	res.GetJSON(d)
-	if res.Result.Err == nil && d.Data != nil && d.Data.Forecast != nil {
-		for _, v := range d.Data.Forecast {
-			fmt.Printf("%s %s %s %s %s %s\n", v.Date, v.Message, v.High, v.Low, v.WindDirection, v.WindLevel)
-		}
-	}
-}
-
-func wifis() {
-	if bssList, err := wf.ScanManager.Scan(); err == nil {
-		for _, bss := range bssList {
-			print(bss.SSID, bss.Signal, bss.KeyMgmt)
-		}
-	} else {
-		fmt.Println(err)
-	}
+	defer db.Disconnect(ctx)
+	fmt.Println(db.SelectDC("sample_analytics", "accounts").CountDocuments(context.TODO(), bson.D{}))
+	fmt.Println(db.GetClient().ListDatabaseNames(context.TODO(), bson.D{}))
 }

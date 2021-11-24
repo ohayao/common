@@ -125,7 +125,9 @@ func (that *Context) PostJSON(v interface{}, buf *bytes.Buffer) {
 // Do 执行请求
 func (that *Context) Do() *Context {
 	res, err := that.client.Do(that.request)
-	that.Result.Header = res.Header
+	if res != nil {
+		that.Result.Header = res.Header
+	}
 	if err != nil {
 		that.Result.Err = err
 		that.Result.Body = nil
